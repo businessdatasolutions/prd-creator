@@ -95,7 +95,7 @@ const ExportManager = (() => {
      * Create Word document content from PRD data
      */
     function createWordContent(doc) {
-        const { Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
+        const { Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = docx;
         const children = [];
         
         // Title
@@ -128,6 +128,35 @@ const ExportManager = (() => {
             })
         );
         
+        // Add review instructions
+        children.push(
+            new Paragraph({
+                children: [
+                    new TextRun({
+                        text: "Review Instructions: ",
+                        bold: true,
+                        size: 22
+                    }),
+                    new TextRun({
+                        text: "Please check the box (☐ → ☑) next to each section after review and add any comments in the provided space.",
+                        italics: true,
+                        size: 22,
+                        color: "595959"
+                    })
+                ],
+                spacing: {
+                    after: 600
+                },
+                border: {
+                    top: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+                    bottom: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }
+                },
+                shading: {
+                    fill: "F5F5F5"
+                }
+            })
+        );
+        
         // Sections
         const sections = [
             { id: 'executive-summary', title: 'Executive Summary' },
@@ -141,10 +170,21 @@ const ExportManager = (() => {
         sections.forEach(section => {
             const content = doc.sections[section.id];
             if (content && content.trim()) {
-                // Section heading
+                // Section heading with checkbox
                 children.push(
                     new Paragraph({
-                        text: section.title,
+                        children: [
+                            new TextRun({
+                                text: "☐  ",  // Unicode checkbox character with space
+                                size: 32,
+                                font: "Arial Unicode MS"
+                            }),
+                            new TextRun({
+                                text: section.title,
+                                bold: true,
+                                size: 28
+                            })
+                        ],
                         heading: HeadingLevel.HEADING_1,
                         spacing: {
                             before: 400,
@@ -167,14 +207,70 @@ const ExportManager = (() => {
                         );
                     }
                 });
+                
+                // Add comment section after content
+                children.push(
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: "Reviewer Comments:",
+                                bold: true,
+                                italics: true,
+                                size: 22,
+                                color: "1F4788"
+                            })
+                        ],
+                        spacing: {
+                            before: 200,
+                            after: 100
+                        }
+                    })
+                );
+                
+                // Add bordered comment box with lines for writing
+                for (let i = 0; i < 4; i++) {
+                    children.push(
+                        new Paragraph({
+                            text: "_____________________________________________________________________________",
+                            spacing: {
+                                after: 240  // Space between lines for writing
+                            },
+                            indent: {
+                                left: 360  // Indent comment lines
+                            }
+                        })
+                    );
+                }
+                
+                // Add spacing after comment section
+                children.push(
+                    new Paragraph({
+                        text: "",
+                        spacing: {
+                            after: 400
+                        }
+                    })
+                );
             }
         });
         
         // Attachments section if any
         if (doc.attachments && doc.attachments.length > 0) {
+            // Attachments heading with checkbox
             children.push(
                 new Paragraph({
-                    text: "Attachments",
+                    children: [
+                        new TextRun({
+                            text: "☐  ",  // Unicode checkbox character with space
+                            size: 32,
+                            font: "Arial Unicode MS"
+                        }),
+                        new TextRun({
+                            text: "Attachments",
+                            bold: true,
+                            size: 28
+                        })
+                    ],
                     heading: HeadingLevel.HEADING_1,
                     spacing: {
                         before: 400,
@@ -193,6 +289,237 @@ const ExportManager = (() => {
                     })
                 );
             });
+            
+            // Add comment section for attachments
+            children.push(
+                new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: "Reviewer Comments:",
+                            bold: true,
+                            italics: true,
+                            size: 22,
+                            color: "1F4788"
+                        })
+                    ],
+                    spacing: {
+                        before: 200,
+                        after: 100
+                    }
+                })
+            );
+            
+            // Add bordered comment box with lines for writing
+            for (let i = 0; i < 4; i++) {
+                children.push(
+                    new Paragraph({
+                        text: "_____________________________________________________________________________",
+                        spacing: {
+                            after: 240  // Space between lines for writing
+                        },
+                        indent: {
+                            left: 360  // Indent comment lines
+                        }
+                    })
+                );
+            }
+        }
+        
+        // Add Review Summary section at the end
+        children.push(
+            new Paragraph({
+                text: "",
+                spacing: {
+                    before: 800
+                }
+            })
+        );
+        
+        // Add page break before review summary
+        children.push(
+            new Paragraph({
+                children: [
+                    new TextRun({
+                        text: "DOCUMENT REVIEW SUMMARY",
+                        bold: true,
+                        size: 32,
+                        color: "1F4788"
+                    })
+                ],
+                alignment: AlignmentType.CENTER,
+                spacing: {
+                    before: 400,
+                    after: 400
+                },
+                border: {
+                    top: { style: BorderStyle.DOUBLE, size: 3, color: "1F4788" },
+                    bottom: { style: BorderStyle.DOUBLE, size: 3, color: "1F4788" }
+                }
+            })
+        );
+        
+        // Review checklist table
+        const reviewSections = [
+            "Executive Summary",
+            "Goals & Objectives",
+            "Functional Requirements",
+            "Non-functional Requirements",
+            "Technical Specifications",
+            "Risks & Mitigations"
+        ];
+        
+        if (doc.attachments && doc.attachments.length > 0) {
+            reviewSections.push("Attachments");
+        }
+        
+        // Add review status header
+        children.push(
+            new Paragraph({
+                children: [
+                    new TextRun({
+                        text: "Section Review Status:",
+                        bold: true,
+                        size: 24
+                    })
+                ],
+                spacing: {
+                    before: 200,
+                    after: 200
+                }
+            })
+        );
+        
+        // Add checklist for each section
+        reviewSections.forEach(sectionName => {
+            children.push(
+                new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: "☐  ",
+                            size: 24,
+                            font: "Arial Unicode MS"
+                        }),
+                        new TextRun({
+                            text: sectionName,
+                            size: 22
+                        }),
+                        new TextRun({
+                            text: " - Reviewed by: _________________________ Date: _____________",
+                            size: 20,
+                            color: "595959"
+                        })
+                    ],
+                    spacing: {
+                        after: 180
+                    },
+                    indent: {
+                        left: 360
+                    }
+                })
+            );
+        });
+        
+        // Add final approval section
+        children.push(
+            new Paragraph({
+                text: "",
+                spacing: {
+                    before: 400
+                }
+            })
+        );
+        
+        children.push(
+            new Paragraph({
+                children: [
+                    new TextRun({
+                        text: "Final Document Approval:",
+                        bold: true,
+                        size: 24
+                    })
+                ],
+                spacing: {
+                    before: 200,
+                    after: 200
+                },
+                border: {
+                    top: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }
+                }
+            })
+        );
+        
+        // Approval signatures
+        const approvers = [
+            "Product Manager",
+            "Technical Lead",
+            "Project Manager",
+            "Stakeholder Representative"
+        ];
+        
+        approvers.forEach(role => {
+            children.push(
+                new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: `${role}: `,
+                            bold: true,
+                            size: 22
+                        })
+                    ],
+                    spacing: {
+                        after: 100
+                    }
+                })
+            );
+            
+            children.push(
+                new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: "Name: _________________________ Signature: _________________________ Date: _____________",
+                            size: 20
+                        })
+                    ],
+                    spacing: {
+                        after: 300
+                    },
+                    indent: {
+                        left: 720
+                    }
+                })
+            );
+        });
+        
+        // Add overall comments section
+        children.push(
+            new Paragraph({
+                children: [
+                    new TextRun({
+                        text: "Overall Review Comments:",
+                        bold: true,
+                        size: 24
+                    })
+                ],
+                spacing: {
+                    before: 400,
+                    after: 200
+                },
+                border: {
+                    top: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }
+                }
+            })
+        );
+        
+        // Add lines for overall comments
+        for (let i = 0; i < 6; i++) {
+            children.push(
+                new Paragraph({
+                    text: "_________________________________________________________________________________",
+                    spacing: {
+                        after: 240
+                    }
+                })
+            );
         }
         
         return children;
