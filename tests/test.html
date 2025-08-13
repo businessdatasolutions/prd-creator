@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRD-Builder Tests</title>
+    
+    <!-- Bootstrap 5 CSS for styling -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        .test-pass { color: #52C41A; }
+        .test-fail { color: #ff4d4f; }
+        .test-pending { color: #faad14; }
+        .test-section { margin-bottom: 2rem; }
+        .test-result { 
+            padding: 0.5rem; 
+            margin: 0.25rem 0;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+        #test-summary {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="test-summary" class="container-fluid">
+        <h1>PRD-Builder Test Suite</h1>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Tests</h5>
+                        <p class="card-text display-6" id="total-tests">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title test-pass">Passed</h5>
+                        <p class="card-text display-6 test-pass" id="passed-tests">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title test-fail">Failed</h5>
+                        <p class="card-text display-6 test-fail" id="failed-tests">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title test-pending">Pending</h5>
+                        <p class="card-text display-6 test-pending" id="pending-tests">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+        <div id="test-results"></div>
+    </div>
+
+    <!-- Test Framework -->
+    <script>
+        const TestRunner = {
+            tests: [],
+            results: {
+                total: 0,
+                passed: 0,
+                failed: 0,
+                pending: 0
+            },
+
+            describe(suiteName, suiteFunction) {
+                const suite = {
+                    name: suiteName,
+                    tests: []
+                };
+                
+                const context = {
+                    it: (testName, testFunction) => {
+                        suite.tests.push({
+                            name: testName,
+                            fn: testFunction
+                        });
+                    },
+                    
+                    xit: (testName, testFunction) => {
+                        suite.tests.push({
+                            name: testName,
+                            fn: testFunction,
+                            pending: true
+                        });
+                    }
+                };
+                
+                suiteFunction.call(context, context.it, context.xit);
+                this.tests.push(suite);
+            },
+
+            assert(condition, message) {
+                if (!condition) {
+                    throw new Error(message || 'Assertion failed');
+                }
+            },
+
+            assertEquals(actual, expected, message) {
+                if (actual !== expected) {
+                    throw new Error(message || `Expected ${expected} but got ${actual}`);
+                }
+            },
+
+            assertNotNull(value, message) {
+                if (value === null || value === undefined) {
+                    throw new Error(message || 'Value is null or undefined');
+                }
+            },
+
+            async run() {
+                const resultsDiv = document.getElementById('test-results');
+                resultsDiv.innerHTML = '';
+                
+                this.results = { total: 0, passed: 0, failed: 0, pending: 0 };
+
+                for (const suite of this.tests) {
+                    const suiteDiv = document.createElement('div');
+                    suiteDiv.className = 'test-section';
+                    suiteDiv.innerHTML = `<h3>${suite.name}</h3>`;
+                    
+                    const testsDiv = document.createElement('div');
+                    
+                    for (const test of suite.tests) {
+                        this.results.total++;
+                        
+                        const testDiv = document.createElement('div');
+                        testDiv.className = 'test-result';
+                        
+                        if (test.pending) {
+                            this.results.pending++;
+                            testDiv.innerHTML = `<span class="test-pending">⊘</span> ${test.name} (pending)`;
+                        } else {
+                            try {
+                                await test.fn();
+                                this.results.passed++;
+                                testDiv.innerHTML = `<span class="test-pass">✓</span> ${test.name}`;
+                            } catch (error) {
+                                this.results.failed++;
+                                testDiv.innerHTML = `<span class="test-fail">✗</span> ${test.name}<br>
+                                    <small class="text-danger">${error.message}</small>`;
+                            }
+                        }
+                        
+                        testsDiv.appendChild(testDiv);
+                    }
+                    
+                    suiteDiv.appendChild(testsDiv);
+                    resultsDiv.appendChild(suiteDiv);
+                }
+
+                this.updateSummary();
+            },
+
+            updateSummary() {
+                document.getElementById('total-tests').textContent = this.results.total;
+                document.getElementById('passed-tests').textContent = this.results.passed;
+                document.getElementById('failed-tests').textContent = this.results.failed;
+                document.getElementById('pending-tests').textContent = this.results.pending;
+            }
+        };
+
+        // Helper functions
+        const { describe, assert, assertEquals, assertNotNull } = TestRunner;
+    </script>
+
+    <!-- Application Scripts -->
+    <script src="../js/app.js"></script>
+
+    <!-- Test Suites -->
+    <script>
+        // Storage Tests
+        TestRunner.describe('LocalStorage', function(it, xit) {
+            it('should be available', function() {
+                TestRunner.assertNotNull(window.localStorage, 'localStorage is not available');
+            });
+
+            it('should store and retrieve data', function() {
+                const testKey = 'test-key';
+                const testValue = 'test-value';
+                
+                localStorage.setItem(testKey, testValue);
+                const retrieved = localStorage.getItem(testKey);
+                
+                TestRunner.assertEquals(retrieved, testValue, 'Retrieved value does not match');
+                
+                // Cleanup
+                localStorage.removeItem(testKey);
+            });
+
+            it('should handle JSON data', function() {
+                const testKey = 'test-json';
+                const testData = { name: 'Test PRD', sections: {} };
+                
+                localStorage.setItem(testKey, JSON.stringify(testData));
+                const retrieved = JSON.parse(localStorage.getItem(testKey));
+                
+                TestRunner.assertEquals(retrieved.name, testData.name, 'JSON data not properly stored');
+                
+                // Cleanup
+                localStorage.removeItem(testKey);
+            });
+        });
+
+        // DOM Tests
+        TestRunner.describe('DOM Elements', function(it, xit) {
+            it('should have app container', function() {
+                const app = document.getElementById('app');
+                TestRunner.assertNotNull(app, 'App container not found');
+            });
+
+            it('should have document list', function() {
+                const docList = document.getElementById('documentList');
+                TestRunner.assertNotNull(docList, 'Document list not found');
+            });
+
+            it('should have new PRD button', function() {
+                const btn = document.getElementById('newPrdBtn');
+                TestRunner.assertNotNull(btn, 'New PRD button not found');
+            });
+
+            it('should have storage indicators', function() {
+                const storageBar = document.getElementById('storageBar');
+                const storageText = document.getElementById('storageText');
+                
+                TestRunner.assertNotNull(storageBar, 'Storage bar not found');
+                TestRunner.assertNotNull(storageText, 'Storage text not found');
+            });
+        });
+
+        // Application Tests
+        TestRunner.describe('PRDBuilder Module', function(it, xit) {
+            it('should be defined', function() {
+                TestRunner.assertNotNull(PRDBuilder, 'PRDBuilder module not defined');
+            });
+
+            it('should have public methods', function() {
+                TestRunner.assertNotNull(PRDBuilder.init, 'init method not found');
+                TestRunner.assertNotNull(PRDBuilder.createNewDocument, 'createNewDocument method not found');
+                TestRunner.assertNotNull(PRDBuilder.deleteDocument, 'deleteDocument method not found');
+                TestRunner.assertNotNull(PRDBuilder.exportDocument, 'exportDocument method not found');
+            });
+
+            xit('should create new document', function() {
+                // This test requires user interaction (prompt)
+                // Will be implemented with mock functions
+            });
+
+            xit('should save document to localStorage', function() {
+                // This test requires more complex setup
+                // Will be implemented after document creation
+            });
+        });
+
+        // Bootstrap Tests
+        TestRunner.describe('Bootstrap Integration', function(it, xit) {
+            it('should have Bootstrap loaded', function() {
+                TestRunner.assertNotNull(window.bootstrap, 'Bootstrap not loaded');
+            });
+
+            it('should have Bootstrap tooltip available', function() {
+                TestRunner.assertNotNull(bootstrap.Tooltip, 'Bootstrap Tooltip not available');
+            });
+
+            it('should have Bootstrap collapse available', function() {
+                TestRunner.assertNotNull(bootstrap.Collapse, 'Bootstrap Collapse not available');
+            });
+        });
+
+        // Browser Compatibility Tests
+        TestRunner.describe('Browser Features', function(it, xit) {
+            it('should support FileReader API', function() {
+                TestRunner.assertNotNull(window.FileReader, 'FileReader API not supported');
+            });
+
+            it('should support Blob', function() {
+                TestRunner.assertNotNull(window.Blob, 'Blob not supported');
+            });
+
+            it('should support URL.createObjectURL', function() {
+                TestRunner.assertNotNull(URL.createObjectURL, 'URL.createObjectURL not supported');
+            });
+
+            it('should support JSON methods', function() {
+                TestRunner.assertNotNull(JSON.stringify, 'JSON.stringify not supported');
+                TestRunner.assertNotNull(JSON.parse, 'JSON.parse not supported');
+            });
+        });
+
+        // Performance Tests
+        TestRunner.describe('Performance', function(it, xit) {
+            it('should load page quickly', function() {
+                const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
+                TestRunner.assert(loadTime < 3000, `Page load took ${loadTime}ms (should be under 3000ms)`);
+            });
+
+            xit('should handle large documents', function() {
+                // Test with large document data
+                // To be implemented
+            });
+        });
+
+        // Run tests when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            TestRunner.run();
+        });
+    </script>
+</body>
+</html>

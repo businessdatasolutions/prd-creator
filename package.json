@@ -1,0 +1,27 @@
+{
+  "name": "prd-creator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/businessdatasolutions/prd-creator.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/businessdatasolutions/prd-creator/issues"
+  },
+  "homepage": "https://github.com/businessdatasolutions/prd-creator#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.54.2"
+  }
+}
