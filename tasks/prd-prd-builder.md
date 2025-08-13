@@ -46,6 +46,7 @@ The PRD-Builder streamlines this entire workflow through guided content creation
 
 **As a Product Manager:**
 - I want a guided interface with collapsible sections so I can focus on one part at a time
+- I want rich text editing capabilities to create professional-looking documents
 - I want to manage multiple PRDs and switch between them easily
 - I want all sections to be optional so I can customize based on project needs
 - I want minimal validation so I can work freely without constraints
@@ -64,6 +65,7 @@ The PRD-Builder streamlines this entire workflow through guided content creation
 
 **PRD Creation:**
 - ✓ User can input content for Executive Summary, Goals/Objectives, Functional Requirements, Non-functional Requirements, Technical Specifications, and Risks & Mitigations
+- ✓ Rich text editing with formatting options (headers, bold, italic, lists, etc.)
 - ✓ All sections are optional with no required fields
 - ✓ Sections can be collapsed/expanded for focused editing
 - ✓ Multiple PRDs can be created and managed with easy switching
@@ -91,10 +93,16 @@ The PRD-Builder streamlines this entire workflow through guided content creation
    - Non-functional Requirements
    - Technical Specifications
    - Risks & Mitigations
-2. **All sections completely optional** - no mandatory fields
-3. **Minimal validation** - save whatever is entered without restrictions
-4. **Auto-save** every 30 seconds to localStorage
-5. **Section completion indicators** showing which sections have content
+2. **Rich text editing** with Quill.js 2.0 for all sections
+   - Headers (H1, H2, H3)
+   - Bold, italic, underline, strikethrough
+   - Ordered and unordered lists
+   - Blockquotes and code blocks
+   - Links
+3. **All sections completely optional** - no mandatory fields
+4. **Minimal validation** - save whatever is entered without restrictions
+5. **Auto-save** every 30 seconds to localStorage
+6. **Section completion indicators** showing which sections have content
 
 ### 4.2 File Management
 6. **Universal file attachment support** - all common file types accepted
@@ -116,11 +124,14 @@ The PRD-Builder streamlines this entire workflow through guided content creation
 18. **Primary: Export to .docx** with full Track Changes and Comments support
 19. **Word document optimization:**
     - Proper heading styles for navigation
-    - Embedded attachments accessible within Word
+    - Rich text formatting preserved (bold, italic, lists, etc.)
+    - Review checkboxes for each section
+    - Dedicated comment sections for reviewer feedback
+    - Document review summary page with signatures
     - Clean formatting for professional appearance
     - Comment-friendly margins and spacing
 20. **Secondary: Export to .pdf** with annotation support
-21. **Tertiary: Export to .md** for technical workflows
+21. **Tertiary: Export to .md** for technical workflows with HTML to Markdown conversion
 22. **Filename customization** before download
 23. **Batch export option** for multiple PRDs
 
@@ -191,6 +202,7 @@ The PRD-Builder streamlines this entire workflow through guided content creation
 - **State Management:** localStorage with JSON serialization
 
 ### Key Libraries
+- **Quill.js 2.0:** Rich text editor with comprehensive formatting options
 - **docx:** Generate Word documents with full Track Changes support
 - **jsPDF:** Create PDF files with annotation capabilities  
 - **marked:** Parse markdown for preview and export

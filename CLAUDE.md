@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PRD-Builder is a web-based application for creating and managing Product Requirements Documents (PRDs). It features guided content creation, multi-document support, file attachments, and optimized exports for collaborative review workflows.
+PRD-Builder is a web-based application for creating and managing Product Requirements Documents (PRDs). It features rich text editing, guided content creation, multi-document support, file attachments, and optimized exports for collaborative review workflows.
 
 ## Repository Status
 
 - **Current State**: Active development - Core features implemented
 - **License**: MIT License (Copyright (c) 2025 businessdatasolutions)
 - **Git**: Repository is initialized with main branch
-- **Technology Stack**: Vanilla JavaScript, Bootstrap 5, localStorage API
+- **Technology Stack**: Vanilla JavaScript, Bootstrap 5, Quill.js 2.0, localStorage API
 - **Architecture**: Client-side only (no backend required)
 
 ## Project Structure
@@ -25,7 +25,7 @@ prd-creator/
 │   ├── app.js          # Main application logic
 │   ├── storage.js      # localStorage management
 │   ├── attachments.js  # File upload/attachment handling
-│   └── export.js       # Export functionality (pending)
+│   └── export.js       # Export functionality (Word, PDF, Markdown)
 ├── tasks/              # PRDs and task lists
 ├── issues/             # Issue tracking documents
 ├── tests/              # Unit and integration tests
@@ -41,10 +41,18 @@ prd-creator/
 - ✅ **Storage management** with usage monitoring and warnings
 - ✅ **Section completion tracking** with visual progress indicators
 - ✅ **Document switching** and management UI
+- ✅ **Rich text editing** with Quill.js 2.0 for all PRD sections
+- ✅ **Word export enhancements** with checkboxes and review sections
 
-## Known Issues
+## Recently Resolved Issues
 
-- **ISSUE-001**: Users cannot edit PRD titles after creation (see `/issues/ISSUE-001-editable-prd-title.md`)
+- **RESOLVED-ISSUE-001**: Title editing functionality (FIXED)
+- **RESOLVED-ISSUE-014**: Rich text formatting support (IMPLEMENTED with Quill.js 2.0)
+- **RESOLVED-ISSUE-015**: Word export checkboxes and review sections (IMPLEMENTED)
+
+## Open Issues
+
+*None currently tracked*
 
 ## Development Notes
 

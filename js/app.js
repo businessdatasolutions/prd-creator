@@ -12,7 +12,8 @@ const PRDBuilder = (function() {
         documents: {},
         autoSaveInterval: null,
         storageWarningThreshold: 0.8,
-        autoSaveDelay: 30000 // 30 seconds
+        autoSaveDelay: 30000, // 30 seconds
+        quillEditors: {} // Store Quill editor instances
     };
 
     // DOM element references
@@ -360,11 +361,16 @@ const PRDBuilder = (function() {
         const doc = state.documents[state.currentDocument];
         if (!doc) return;
         
-        // Collect data from all sections
+        // Collect data from all Quill editors
         sections.forEach(section => {
-            const textarea = document.getElementById(section.id + '-content');
-            if (textarea) {
-                doc.sections[section.id] = textarea.value;
+            const editor = state.quillEditors[section.id];
+            if (editor) {
+                // Save both HTML and plain text
+                doc.sections[section.id] = {
+                    html: editor.root.innerHTML,
+                    text: editor.getText(),
+                    delta: editor.getContents() // Quill Delta format for perfect reconstruction
+                };
             }
         });
         
@@ -526,8 +532,17 @@ const PRDBuilder = (function() {
         
         sections.forEach((section, index) => {
             const isExpanded = index === 0;
-            const content = doc.sections[section.id] || '';
-            const hasContent = content.trim().length > 0;
+            // Handle both old string format and new object format
+            let content = doc.sections[section.id] || '';
+            let hasContent = false;
+            
+            if (typeof content === 'object' && content !== null) {
+                // New format with HTML/Delta
+                hasContent = content.text && content.text.trim().length > 1; // Quill always has \n
+            } else {
+                // Old format (plain text)
+                hasContent = content.trim().length > 0;
+            }
             
             html += `
                 <div class="accordion-item">
@@ -551,10 +566,9 @@ const PRDBuilder = (function() {
                          class="accordion-collapse collapse ${isExpanded ? 'show' : ''}" 
                          data-bs-parent="#${accordionId}">
                         <div class="accordion-body">
-                            <textarea class="form-control textarea-auto-resize" 
-                                      id="${section.id}-content"
-                                      placeholder="${section.placeholder}"
-                                      rows="6">${content}</textarea>
+                            <div class="quill-wrapper">
+                                <div id="${section.id}-editor" class="quill-editor"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -598,24 +612,93 @@ const PRDBuilder = (function() {
         
         // Title editing functionality is now handled via inline onclick handlers
         
-        // Add input listeners for auto-save
-        sections.forEach(section => {
-            const textarea = document.getElementById(section.id + '-content');
-            if (textarea) {
-                textarea.addEventListener('input', debounce(() => {
-                    saveCurrentDocument();
-                    showSaveIndicator();
-                }, 2000));
-                
-                // Auto-resize textarea
-                textarea.addEventListener('input', () => {
-                    textarea.style.height = 'auto';
-                    textarea.style.height = textarea.scrollHeight + 'px';
-                });
-            }
+        // Initialize Quill editors for each section
+        initializeQuillEditors(doc);
+        
+        // Add listeners for auto-save
+        Object.values(state.quillEditors).forEach(editor => {
+            editor.on('text-change', debounce(() => {
+                saveCurrentDocument();
+                showSaveIndicator();
+                updateSectionIndicators();
+            }, 2000));
         });
     }
 
+    /**
+     * Initialize Quill editors
+     */
+    function initializeQuillEditors(doc) {
+        // Clear existing editors
+        state.quillEditors = {};
+        
+        sections.forEach(section => {
+            const editorElement = document.getElementById(`${section.id}-editor`);
+            if (editorElement) {
+                // Configure Quill toolbar
+                const toolbarOptions = [
+                    [{ 'header': [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    ['blockquote', 'code-block'],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    [{ 'indent': '-1'}, { 'indent': '+1' }],
+                    ['link'],
+                    ['clean']
+                ];
+                
+                // Initialize Quill editor
+                const quill = new Quill(`#${section.id}-editor`, {
+                    theme: 'snow',
+                    placeholder: section.placeholder,
+                    modules: {
+                        toolbar: toolbarOptions
+                    }
+                });
+                
+                // Load existing content
+                const content = doc.sections[section.id];
+                if (content) {
+                    if (typeof content === 'object' && content.delta) {
+                        // Load from Delta format (best for preserving formatting)
+                        quill.setContents(content.delta);
+                    } else if (typeof content === 'object' && content.html) {
+                        // Load from HTML
+                        quill.root.innerHTML = content.html;
+                    } else if (typeof content === 'string') {
+                        // Load plain text (for backward compatibility)
+                        quill.setText(content);
+                    }
+                }
+                
+                // Store editor instance
+                state.quillEditors[section.id] = quill;
+            }
+        });
+    }
+    
+    /**
+     * Update section indicators
+     */
+    function updateSectionIndicators() {
+        if (!state.currentDocument) return;
+        const doc = state.documents[state.currentDocument];
+        if (!doc) return;
+        
+        sections.forEach(section => {
+            const editor = state.quillEditors[section.id];
+            const indicator = document.querySelector(`#${section.id}`).previousElementSibling.querySelector('.section-indicator');
+            
+            if (editor && indicator) {
+                const text = editor.getText().trim();
+                if (text.length > 0) {
+                    indicator.classList.add('completed');
+                } else {
+                    indicator.classList.remove('completed');
+                }
+            }
+        });
+    }
+    
     /**
      * Get section completion status
      */
@@ -624,8 +707,17 @@ const PRDBuilder = (function() {
         let total = sections.length;
         
         sections.forEach(section => {
-            if (doc.sections[section.id] && doc.sections[section.id].trim().length > 0) {
-                completed++;
+            const content = doc.sections[section.id];
+            if (content) {
+                if (typeof content === 'object' && content !== null) {
+                    // New format - check text content
+                    if (content.text && content.text.trim().length > 1) {
+                        completed++;
+                    }
+                } else if (typeof content === 'string' && content.trim().length > 0) {
+                    // Old format
+                    completed++;
+                }
             }
         });
         

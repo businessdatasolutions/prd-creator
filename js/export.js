@@ -92,6 +92,173 @@ const ExportManager = (() => {
     }
     
     /**
+     * Parse HTML content and convert to Word paragraphs
+     */
+    function parseHTMLContent(html) {
+        const { Paragraph, TextRun, HeadingLevel } = docx;
+        const paragraphs = [];
+        
+        // Create a temporary DOM element to parse HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // Process each child element
+        const processNode = (node, currentRuns = []) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent;
+                if (text.trim()) {
+                    currentRuns.push(new TextRun({ text }));
+                }
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                const tagName = node.tagName.toLowerCase();
+                
+                switch (tagName) {
+                    case 'p':
+                        const pRuns = [];
+                        Array.from(node.childNodes).forEach(child => {
+                            processInlineNode(child, pRuns);
+                        });
+                        if (pRuns.length > 0) {
+                            paragraphs.push(new Paragraph({
+                                children: pRuns,
+                                spacing: { after: 200 }
+                            }));
+                        }
+                        break;
+                        
+                    case 'h1':
+                    case 'h2':
+                    case 'h3':
+                        const hRuns = [];
+                        Array.from(node.childNodes).forEach(child => {
+                            processInlineNode(child, hRuns);
+                        });
+                        const level = tagName === 'h1' ? HeadingLevel.HEADING_2 : 
+                                     tagName === 'h2' ? HeadingLevel.HEADING_3 : 
+                                     HeadingLevel.HEADING_4;
+                        paragraphs.push(new Paragraph({
+                            children: hRuns,
+                            heading: level,
+                            spacing: { before: 200, after: 100 }
+                        }));
+                        break;
+                        
+                    case 'ul':
+                    case 'ol':
+                        Array.from(node.children).forEach((li, index) => {
+                            const bullet = tagName === 'ul' ? '• ' : `${index + 1}. `;
+                            const liRuns = [new TextRun({ text: bullet })];
+                            Array.from(li.childNodes).forEach(child => {
+                                processInlineNode(child, liRuns);
+                            });
+                            paragraphs.push(new Paragraph({
+                                children: liRuns,
+                                spacing: { after: 100 },
+                                indent: { left: 360 }
+                            }));
+                        });
+                        break;
+                        
+                    case 'blockquote':
+                        const bqRuns = [];
+                        Array.from(node.childNodes).forEach(child => {
+                            processInlineNode(child, bqRuns);
+                        });
+                        paragraphs.push(new Paragraph({
+                            children: bqRuns,
+                            spacing: { after: 200 },
+                            indent: { left: 720 },
+                            italics: true
+                        }));
+                        break;
+                        
+                    case 'pre':
+                        const codeText = node.textContent;
+                        paragraphs.push(new Paragraph({
+                            children: [new TextRun({
+                                text: codeText,
+                                font: 'Courier New',
+                                size: 20
+                            })],
+                            spacing: { after: 200 },
+                            shading: { fill: 'E8E8E8' }
+                        }));
+                        break;
+                        
+                    default:
+                        // Process children for other elements
+                        Array.from(node.childNodes).forEach(child => {
+                            processNode(child, currentRuns);
+                        });
+                }
+            }
+        };
+        
+        const processInlineNode = (node, runs) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent;
+                if (text) {
+                    runs.push(new TextRun({ text }));
+                }
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                const tagName = node.tagName.toLowerCase();
+                const text = node.textContent;
+                
+                switch (tagName) {
+                    case 'strong':
+                    case 'b':
+                        runs.push(new TextRun({ text, bold: true }));
+                        break;
+                    case 'em':
+                    case 'i':
+                        runs.push(new TextRun({ text, italics: true }));
+                        break;
+                    case 'u':
+                        runs.push(new TextRun({ text, underline: {} }));
+                        break;
+                    case 's':
+                        runs.push(new TextRun({ text, strike: true }));
+                        break;
+                    case 'code':
+                        runs.push(new TextRun({ 
+                            text, 
+                            font: 'Courier New',
+                            shading: { fill: 'E8E8E8' }
+                        }));
+                        break;
+                    case 'a':
+                        runs.push(new TextRun({
+                            text,
+                            underline: {},
+                            color: '0563C1'
+                        }));
+                        break;
+                    default:
+                        // Recursively process children
+                        Array.from(node.childNodes).forEach(child => {
+                            processInlineNode(child, runs);
+                        });
+                }
+            }
+        };
+        
+        // Process all top-level nodes
+        Array.from(tempDiv.childNodes).forEach(node => {
+            processNode(node);
+        });
+        
+        // If no paragraphs were created, treat the entire content as a single paragraph
+        if (paragraphs.length === 0 && tempDiv.textContent.trim()) {
+            paragraphs.push(new Paragraph({
+                text: tempDiv.textContent.trim(),
+                spacing: { after: 200 }
+            }));
+        }
+        
+        return paragraphs;
+    }
+    
+    /**
      * Create Word document content from PRD data
      */
     function createWordContent(doc) {
@@ -168,8 +335,23 @@ const ExportManager = (() => {
         ];
         
         sections.forEach(section => {
-            const content = doc.sections[section.id];
-            if (content && content.trim()) {
+            let content = doc.sections[section.id];
+            let htmlContent = null;
+            let textContent = null;
+            
+            // Handle both old and new formats
+            if (content) {
+                if (typeof content === 'object' && content !== null) {
+                    // New format with HTML and text
+                    htmlContent = content.html;
+                    textContent = content.text;
+                } else if (typeof content === 'string') {
+                    // Old format (plain text)
+                    textContent = content;
+                }
+            }
+            
+            if (textContent && textContent.trim()) {
                 // Section heading with checkbox
                 children.push(
                     new Paragraph({
@@ -193,20 +375,27 @@ const ExportManager = (() => {
                     })
                 );
                 
-                // Section content - split by paragraphs
-                const paragraphs = content.split('\n\n');
-                paragraphs.forEach(para => {
-                    if (para.trim()) {
-                        children.push(
-                            new Paragraph({
-                                text: para.trim(),
-                                spacing: {
-                                    after: 200
-                                }
-                            })
-                        );
-                    }
-                });
+                // Section content - handle HTML if available
+                if (htmlContent) {
+                    // Parse HTML content and convert to Word format
+                    const htmlParagraphs = parseHTMLContent(htmlContent);
+                    children.push(...htmlParagraphs);
+                } else {
+                    // Fall back to plain text (for backward compatibility)
+                    const paragraphs = textContent.split('\n\n');
+                    paragraphs.forEach(para => {
+                        if (para.trim()) {
+                            children.push(
+                                new Paragraph({
+                                    text: para.trim(),
+                                    spacing: {
+                                        after: 200
+                                    }
+                                })
+                            );
+                        }
+                    });
+                }
                 
                 // Add comment section after content
                 children.push(
@@ -577,8 +766,21 @@ const ExportManager = (() => {
             ];
             
             sections.forEach(section => {
-                const content = doc.sections[section.id];
-                if (content && content.trim()) {
+                let content = doc.sections[section.id];
+                let textContent = null;
+                
+                // Handle both old and new formats
+                if (content) {
+                    if (typeof content === 'object' && content !== null) {
+                        // New format with HTML and text
+                        textContent = content.text;
+                    } else if (typeof content === 'string') {
+                        // Old format (plain text)
+                        textContent = content;
+                    }
+                }
+                
+                if (textContent && textContent.trim()) {
                     // Check if we need a new page
                     if (yPosition > pageHeight - 40) {
                         pdf.addPage();
@@ -597,7 +799,8 @@ const ExportManager = (() => {
                     pdf.setTextColor(0, 0, 0);
                     pdf.setFont(undefined, 'normal');
                     
-                    const lines = pdf.splitTextToSize(content, maxWidth);
+                    // Use plain text for PDF (formatting limitations in jsPDF)
+                    const lines = pdf.splitTextToSize(textContent, maxWidth);
                     lines.forEach(line => {
                         if (yPosition > pageHeight - margins.bottom) {
                             pdf.addPage();
@@ -649,6 +852,92 @@ const ExportManager = (() => {
     }
     
     /**
+     * Convert HTML to Markdown
+     */
+    function htmlToMarkdown(html) {
+        // Create a temporary DOM element to parse HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        let markdown = '';
+        
+        const processNode = (node, listLevel = 0) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.textContent;
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                const tagName = node.tagName.toLowerCase();
+                const content = Array.from(node.childNodes)
+                    .map(child => processNode(child, listLevel))
+                    .join('');
+                
+                switch (tagName) {
+                    case 'p':
+                        return content + '\n\n';
+                    case 'h1':
+                        return `### ${content}\n\n`;
+                    case 'h2':
+                        return `#### ${content}\n\n`;
+                    case 'h3':
+                        return `##### ${content}\n\n`;
+                    case 'strong':
+                    case 'b':
+                        return `**${content}**`;
+                    case 'em':
+                    case 'i':
+                        return `*${content}*`;
+                    case 'u':
+                        return `<u>${content}</u>`;
+                    case 's':
+                        return `~~${content}~~`;
+                    case 'code':
+                        return `\`${content}\``;
+                    case 'pre':
+                        return '```\n' + content + '\n```\n\n';
+                    case 'blockquote':
+                        return content.split('\n').map(line => '> ' + line).join('\n') + '\n\n';
+                    case 'ul':
+                        return Array.from(node.children)
+                            .map(li => {
+                                const indent = '  '.repeat(listLevel);
+                                const liContent = Array.from(li.childNodes)
+                                    .map(child => processNode(child, listLevel + 1))
+                                    .join('');
+                                return `${indent}- ${liContent.trim()}\n`;
+                            })
+                            .join('') + '\n';
+                    case 'ol':
+                        return Array.from(node.children)
+                            .map((li, index) => {
+                                const indent = '  '.repeat(listLevel);
+                                const liContent = Array.from(li.childNodes)
+                                    .map(child => processNode(child, listLevel + 1))
+                                    .join('');
+                                return `${indent}${index + 1}. ${liContent.trim()}\n`;
+                            })
+                            .join('') + '\n';
+                    case 'a':
+                        const href = node.getAttribute('href');
+                        return `[${content}](${href || '#'})`;
+                    case 'br':
+                        return '\n';
+                    default:
+                        return content;
+                }
+            }
+            return '';
+        };
+        
+        Array.from(tempDiv.childNodes).forEach(node => {
+            markdown += processNode(node);
+        });
+        
+        // Clean up excessive newlines
+        markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
+        
+        return markdown;
+    }
+    
+    /**
      * Export document to Markdown format
      */
     function exportToMarkdown(doc) {
@@ -668,10 +957,33 @@ const ExportManager = (() => {
             ];
             
             sections.forEach(section => {
-                const content = doc.sections[section.id];
-                if (content && content.trim()) {
+                let content = doc.sections[section.id];
+                let htmlContent = null;
+                let textContent = null;
+                
+                // Handle both old and new formats
+                if (content) {
+                    if (typeof content === 'object' && content !== null) {
+                        // New format with HTML and text
+                        htmlContent = content.html;
+                        textContent = content.text;
+                    } else if (typeof content === 'string') {
+                        // Old format (plain text)
+                        textContent = content;
+                    }
+                }
+                
+                if (textContent && textContent.trim()) {
                     markdown += `## ${section.title}\n\n`;
-                    markdown += `${content.trim()}\n\n`;
+                    
+                    if (htmlContent) {
+                        // Convert HTML to Markdown
+                        const markdownContent = htmlToMarkdown(htmlContent);
+                        markdown += `${markdownContent}\n\n`;
+                    } else {
+                        // Use plain text
+                        markdown += `${textContent.trim()}\n\n`;
+                    }
                 }
             });
             
